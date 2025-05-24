@@ -304,34 +304,8 @@ async def entrypoint(ctx: agents.JobContext):
 
     @session.on("conversation_item_added")
     def on_conversation_item_added(event: agents.ConversationItemAddedEvent):
-        # logger.info(f"Conversation item added from {event.item.role}: {event.item.text_content}")
-        if event.item.role == 'user':
-            session._chat_ctx.items[-1] = FinesseChatMessage(
-                id=event.item.id,
-                type=event.item.type,
-                role=event.item.role,
-                content=event.item.content,
-                duration=session._user_turn_duration,
-                start_offset=session._user_turn_start_offset,
-                end_offset=session._user_turn_end_offset,
-            )
-            session._user_turn_duration = 0.0
-            session._user_turn_start_offset = None
-            session._user_turn_end_offset = None
-        elif event.item.role == 'assistant':
-            session._chat_ctx.items[-1] = FinesseChatMessage(
-                id=event.item.id,
-                type=event.item.type,
-                role=event.item.role,
-                content=event.item.content,
-                duration=session._agent_turn_duration,
-                start_offset=session._agent_turn_start_offset,
-                end_offset=session._agent_turn_end_offset,
-            )
-            session._agent_turn_duration = 0.0
-            session._agent_turn_start_offset = None
-            session._agent_turn_end_offset = None
-
+        logger.info(f"Conversation item added from {event.item.role}: {event.item.text_content}")
+        if event.item.role == 'assistant':
             n_user_messages = len([e for e in session._chat_ctx.items if e.role == 'user'])
             is_agent_message = event.item.role == 'assistant'
             async def handle_checker():
