@@ -349,7 +349,7 @@ def run_livekit_worker(mode):
 
     # mimic cli-run -> download_files
     try:
-        logger.info("plugins", Plugin.registered_plugins)
+        logger.info(f"plugins: {Plugin.registered_plugins}")
         for plugin in Plugin.registered_plugins:
             logger.info(f"Downloading files for {plugin}")
             plugin.download_files()
@@ -407,7 +407,6 @@ def run_livekit_worker(mode):
 
 
 if __name__ == "__main__":
-    
     if len(sys.argv) > 1:
         mode = sys.argv[1].strip()
         print(f"mode: {mode}")
