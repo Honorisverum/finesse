@@ -5,7 +5,6 @@ livekit-plugins-openai==1.0.20
 livekit-plugins-elevenlabs==1.0.20
 livekit-plugins-silero==1.0.20
 livekit-plugins-turn-detector==1.0.20
-livekit-plugins-hume==1.0.20
 livekit-api==1.0.2
 livekit-protocol==1.0.2
 livekit-plugins-noise-cancellation==0.2.3
@@ -16,4 +15,3 @@ aiofiles==24.1.0
 websockets==13.1
 gradio==5.24.0
 gradio_client==1.8.0
-hume==0.8.3

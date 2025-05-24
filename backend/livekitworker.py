@@ -17,8 +17,7 @@ from livekit.agents.cli.proto import CliArgs
 from livekit.agents.plugin import Plugin
 from livekit.plugins.turn_detector.english import EnglishModel as EnglishTurnDetector
 from livekit.agents import function_tool, RunContext
-from livekit.plugins import deepgram, elevenlabs, hume, noise_cancellation, openai, silero
-from hume.tts.types.posted_utterance_voice_with_id import PostedUtteranceVoiceWithId
+from livekit.plugins import deepgram, elevenlabs, noise_cancellation, openai, silero
 
 import checker as finesse_checker
 import hint as finesse_hint
@@ -162,7 +161,7 @@ class FinesseTutor(agents.Agent, finesse_tts.AdapterStreamingFalseNextTextTTS):
 
 NOISE_CANCELLATION = False
 TURN_DETECTION = True
-TTS = "elevenlabs"  # elevenlabs | nostreamnexttextelevenlabs | hume
+TTS = "elevenlabs"  # elevenlabs | nostreamnexttextelevenlabs
 
 
 async def entrypoint(ctx: agents.JobContext):
@@ -236,17 +235,6 @@ async def entrypoint(ctx: agents.JobContext):
             model="eleven_monolingual_v1",
             api_key=os.getenv("ELEVENLABS_API_KEY"),
             next_text=" they say her voice trembling with sadness.",
-        )
-    elif TTS == "hume":
-        agent_session_kwargs["tts"] = hume.TTS(
-            voice=PostedUtteranceVoiceWithId(
-                id="9e068547-5ba4-4c8e-8e03-69282a008f04",
-                provider="HUME_AI",
-            ),
-            instant_mode=True,
-            description="melancholy and frustrated",  # description=scenario_data["voice_description"],
-            speed=1.0,
-            api_key=os.getenv("HUME_API_KEY"),
         )
     if TURN_DETECTION:
         agent_session_kwargs["turn_detection"] = EnglishTurnDetector()
@@ -370,7 +358,7 @@ async def entrypoint(ctx: agents.JobContext):
             if (mode != "console") and (n_user_messages > 0) and (is_agent_message):
                 asyncio.create_task(handle_checker())
 
-    output_sr = { "elevenlabs": 44100, "nostreamnexttextelevenlabs": 44100, "hume": hume.tts.DEFAULT_SAMPLE_RATE }[TTS]
+    output_sr = { "elevenlabs": 44100, "nostreamnexttextelevenlabs": 44100 }[TTS]
     session_start_kwargs = {
         "room": ctx.room,
         "agent": FinesseTutor(userdata=userdata, mode=mode),
