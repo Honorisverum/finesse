@@ -1,6 +1,6 @@
 # Finesse
 
-## Run LiveKit Server
+## Run Backend
 
 right in the console
 
