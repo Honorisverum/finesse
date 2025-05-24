@@ -2,6 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { NextResponse } from 'next/server';
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic';
+
 // Path to scenarios directory
 const scenariosDir = path.join(process.cwd(), '..', 'scenarios');
 
