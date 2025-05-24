@@ -40,11 +40,11 @@ class SessionInfo:
     scenario_data: dict | None = None
 
 
-class FinesseChatMessage(agents.ChatMessage):
-    duration: float | None = None
-    start_offset: float | None = None
-    end_offset: float | None = None
-FinesseChatMessage.model_rebuild()
+# TODO delete
+# class FinesseChatMessage(agents.ChatMessage):
+#     duration: float | None = None
+#     start_offset: float | None = None
+#     end_offset: float | None = None
 
 
 class FinesseTutor(agents.Agent, finesse_tts.AdapterStreamingFalseNextTextTTS):
@@ -98,7 +98,7 @@ class FinesseTutor(agents.Agent, finesse_tts.AdapterStreamingFalseNextTextTTS):
         return history
     
     async def on_user_turn_completed(self, turn_ctx: agents.ChatContext, new_message: agents.ChatMessage):
-        logger.info(f"on_user_turn_completed")
+        logger.info("on_user_turn_completed")
         await self.early_termination()
     
     async def make_rpc_call(self, method, payload):
