@@ -16,7 +16,7 @@ SKILLS = [
 def load_scenarios(skills: list[str] = None):
     skills = skills or SKILLS
     all_scenarios = defaultdict(dict)
-    base_path = Path(__file__).parent / "scenarios"
+    base_path = Path(__file__).parent.parent / "scenarios"
     for skill in skills:
         file_name = f"{skill}.json"
         file_path = base_path / file_name
