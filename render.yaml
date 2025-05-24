@@ -1,0 +1,19 @@
+services:
+- type: worker
+  name: finesse-agents
+  runtime: python
+  plan: starter
+  autoDeploy: true
+
+  buildCommand: pip install -r requirements.txt
+  startCommand: python livekitworker.py start
+
+  region: ohio
+  repo: https://github.com/Honorisverum/finesse
+  rootDir: backend  # changes to files outside the root directory do not trigger a build for the service
+
+  envVars:
+  - fromGroup: dev
+
+  maxShutdownDelaySeconds: 300  # standard allowed maximum
+  numInstances: 1

@@ -444,7 +444,6 @@ def run_livekit_worker(mode):
     raise Exception("Raise exception for restart")
 
 
-# NOTE original was: agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
 if __name__ == "__main__":
     
     if len(sys.argv) > 1:
