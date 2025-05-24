@@ -191,7 +191,6 @@ async def entrypoint(ctx: agents.JobContext):
     userid = attributes.get("user_id", "1234567890")
     username = attributes.get("user_name", "Vlad")
     usergender = attributes.get("user_gender", "male")
-    # elevenlabs_voice_id = {'female': 'jB2lPb5DhAX6l1TLkKXy', 'male': 'TX3LPaxmHKxFdv7VOQHJ'}[scenario_data['botgender']]
     elevenlabs_voice_id = scenario_data['elevenlabs_voice_id']
 
     userdata = SessionInfo(

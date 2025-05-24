@@ -13,7 +13,8 @@ SKILLS = [
     "manipulationdefense"
 ]
 
-def load_scenarios(skills=SKILLS):
+def load_scenarios(skills: list[str] = None):
+    skills = skills or SKILLS
     all_scenarios = defaultdict(dict)
     base_path = Path(__file__).parent / "scenarios"
     for skill in skills:
