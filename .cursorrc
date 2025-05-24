@@ -1,0 +1,12 @@
+{
+  "agent":
+  {
+    "shell": "/bin/zsh",
+    "env":
+    {
+      "PATH": "/Users/vladislavbelaev/miniconda/envs/finesse/bin",
+      "CONDA_PREFIX": "/Users/vladislavbelaev/miniconda/envs/finesse",
+      "PYTHONPATH": "/Users/vladislavbelaev/miniconda/envs/finesse/lib/python3.12/site-packages"
+    }
+  }
+}
