@@ -78,6 +78,8 @@ def call(
     
     response_json = response.json()
 
+    print(response_json)
+
     content = response_json["choices"][0]["message"]["content"]
     if json_mode:
         content = json.loads(content)

@@ -167,3 +167,5 @@ tests/
 # Temporary Python files
 *.tmp
 *.temp 
+
+.venv/

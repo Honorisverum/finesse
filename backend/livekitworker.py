@@ -8,7 +8,7 @@ import sys
 import time
 from dataclasses import dataclass
 from dotenv import load_dotenv
-
+from tenacity import retry, stop_after_attempt
 from livekit import agents
 from livekit.agents.voice import room_io
 import livekit.agents.cli.cli
@@ -19,11 +19,24 @@ from livekit.plugins.turn_detector.english import EnglishModel as EnglishTurnDet
 from livekit.agents import function_tool, RunContext
 from livekit.plugins import deepgram, elevenlabs, noise_cancellation, openai, silero
 
+import emoji
+
+from silence import setup_say_on_silence
+
 import checker as finesse_checker
 import hint as finesse_hint
 import postanalyser as finesse_postanalyser
-import tts as finesse_tts
 import utils as finesse_utils
+
+
+# TODO
+# 1) [v] update livekit code
+# 2) hints: better model, better prompt, reliability, run if 3 turns no improve
+# 3) checker: better model, better prompt, reliability
+# 4) postanalyzer: best model, better prompt, reliability
+# 5) [v] say on silence
+# 6) tune prompts for top5 or choose best
+# 7) tools calls?
 
 
 load_dotenv(override=True)
@@ -32,22 +45,15 @@ logger = logging.getLogger("livekit.agents")
 
 @dataclass
 class SessionInfo:
-    userid: str | None = None
-    username: str | None = None
-    usergender: str | None = None
-    skill: str | None = None
-    scenario_name: str | None = None
-    scenario_data: dict | None = None
+    userid: str
+    username: str
+    usergender: str
+    skill: str
+    scenario_name: str
+    scenario_data: dict
 
 
-# TODO delete
-# class FinesseChatMessage(agents.ChatMessage):
-#     duration: float | None = None
-#     start_offset: float | None = None
-#     end_offset: float | None = None
-
-
-class FinesseTutor(agents.Agent, finesse_tts.AdapterStreamingFalseNextTextTTS):
+class FinesseTutor(agents.Agent):
     def __init__(
         self,
         userdata: SessionInfo,
@@ -85,22 +91,11 @@ class FinesseTutor(agents.Agent, finesse_tts.AdapterStreamingFalseNextTextTTS):
         self.session.history.add_message(role="user", content=roleplay)
         self.session.say(text=script, allow_interruptions=False, add_to_chat_ctx=True)
     
-    def get_session_history(self):
-        history = [
-            {
-                "role": e['role'],
-                "text": e['content'][0],
-                "start": e['start_offset'],
-                "end": e['end_offset'],
-            }
-            for e in self.session.history.to_dict(exclude_function_call=True)["items"]
-        ]
-        return history
-    
     async def on_user_turn_completed(self, turn_ctx: agents.ChatContext, new_message: agents.ChatMessage):
         logger.info("on_user_turn_completed")
         await self.early_termination()
     
+    @retry(stop=stop_after_attempt(3))
     async def make_rpc_call(self, method, payload):
         if self.mode != "console":
             client_identity = next(iter(self.session._room_io._room.remote_participants.keys()))
@@ -143,7 +138,27 @@ class FinesseTutor(agents.Agent, finesse_tts.AdapterStreamingFalseNextTextTTS):
                 await self.make_rpc_call(method="end_conversation", payload=json.dumps(payload))
     
     @function_tool()
-    async def end_conversation(self, ctx: RunContext[SessionInfo]) -> None:
+    async def emoji_reaction(self, ctx: RunContext[SessionInfo], reaction: str):
+        """Use this tool to show a reaction to the user's last message using emojis. Use this as frequently as needed. Only a single emoji at a time allowed."""
+        logger.info(f"`emoji_reaction` tool called with reaction: {reaction}")
+        reaction = reaction.strip()
+        
+        if emoji and not emoji.is_emoji(reaction):
+            reaction = reaction.replace(":", "")
+            try:
+                reaction = emoji.emojize(f":{reaction}:", language='alias')
+            except Exception:
+                pass
+        
+        # Send emoji to frontend
+        if self.mode != "console":
+            asyncio.create_task(
+                self.make_rpc_call(method="reaction", payload=reaction)
+            )
+        return ""
+    
+    @function_tool()
+    async def end_conversation(self, ctx: RunContext[SessionInfo]):
         """Call this function if the user verbally indicates they want to finish or leave."""
         logger.info("`end_conversation` tool called")
         await self.session.generate_reply(
@@ -156,12 +171,6 @@ class FinesseTutor(agents.Agent, finesse_tts.AdapterStreamingFalseNextTextTTS):
         ).wait_for_playout()
         payload = {"message": "Next time you'll do better!"}
         await self.make_rpc_call(method="end_conversation", payload=json.dumps(payload))
-        return None
-
-
-NOISE_CANCELLATION = False
-TURN_DETECTION = True
-TTS = "elevenlabs"  # elevenlabs | nostreamnexttextelevenlabs
 
 
 async def entrypoint(ctx: agents.JobContext):
@@ -174,29 +183,24 @@ async def entrypoint(ctx: agents.JobContext):
         await ctx.wait_for_participant()
 
     ALL_SCENARIOS = finesse_utils.load_scenarios()
-    if mode != "console":
+    if mode == "console":
+        attributes = {'user_id': '1234567890', 'userName': 'Vlad', 'userGender': 'male'}
+        skill = random.choice(list(ALL_SCENARIOS.keys()))
+        scenario_name = random.choice(list(ALL_SCENARIOS[skill].keys()))
+    else:
         remote_participant_identity = next(iter(ctx.room.remote_participants.keys()))
         remote_participant = ctx.room.remote_participants[remote_participant_identity]
         attributes = remote_participant.attributes
         logger.info(f"attributes {attributes}")
         skill = attributes["skill"]
         scenario_name = attributes["scenarioName"]
-        scenario_data = ALL_SCENARIOS[skill][scenario_name]
-    else:
-        attributes = {}
-        skill = random.choice(list(ALL_SCENARIOS.keys()))
-        scenario_name = random.choice(list(ALL_SCENARIOS[skill].keys()))
-        scenario_data = ALL_SCENARIOS[skill][scenario_name]
+        attributes['user_id'] = '1234567890'
+    scenario_data = ALL_SCENARIOS[skill][scenario_name]
     
-    userid = attributes.get("user_id", "1234567890")
-    username = attributes.get("user_name", "Vlad")
-    usergender = attributes.get("user_gender", "male")
-    elevenlabs_voice_id = scenario_data['elevenlabs_voice_id']
-
     userdata = SessionInfo(
-        userid=userid,
-        username=username,
-        usergender=usergender,
+        userid=attributes["user_id"],
+        username=attributes["userName"],
+        usergender=attributes["userGender"],
         skill=skill,
         scenario_name=scenario_name,
         scenario_data=scenario_data,
@@ -214,52 +218,29 @@ async def entrypoint(ctx: agents.JobContext):
             model="gpt-4.1",
             api_key=os.getenv("OPENAI_API_KEY"),
         ),
+        "tts": elevenlabs.TTS(
+            voice_id=scenario_data['elevenlabs_voice_id'],
+            encoding="mp3_44100_96",
+            model="eleven_turbo_v2_5",
+            api_key=os.getenv("ELEVENLABS_API_KEY"),
+        ),
         "vad": silero.VAD.load(),
         "allow_interruptions": True,
         "min_interruption_duration": 0.5,
         "min_endpointing_delay": 0.5,
         "max_endpointing_delay": 6.0,
+        "turn_detection": EnglishTurnDetector(),
     }
-    if TTS == "elevenlabs":
-        agent_session_kwargs["tts"] = elevenlabs.TTS(
-            voice_id=elevenlabs_voice_id,
-            encoding="mp3_44100_96",
-            model="eleven_turbo_v2_5",
-            api_key=os.getenv("ELEVENLABS_API_KEY"),
-        )
-    elif TTS == "nostreamnexttextelevenlabs":
-        agent_session_kwargs["tts"] = finesse_tts.StreamingFalseNextTextTTS(
-            voice_id=elevenlabs_voice_id,
-            encoding="mp3_44100_96",
-            model="eleven_monolingual_v1",
-            api_key=os.getenv("ELEVENLABS_API_KEY"),
-            next_text=" they say her voice trembling with sadness.",
-        )
-    if TURN_DETECTION:
-        agent_session_kwargs["turn_detection"] = EnglishTurnDetector()
     session = agents.AgentSession[SessionInfo](**agent_session_kwargs)
-    
+
+    setup_say_on_silence(ctx, session)
     @session.on("user_state_changed")
     def _on_user_state_changed(ev: agents.UserStateChangedEvent):
-        # logger.info(f"User state changed: {ev.old_state} -> {ev.new_state}")
-        if (ev.new_state == 'speaking') and (session._user_turn_start_offset is None):
-            session._user_turn_start_offset = time.time() - session._start_ts
-        if (ev.new_state == 'speaking'):
-            session._user_speaking_start_ts = time.time()
-        elif (ev.old_state == 'speaking'):
-            session._user_turn_duration += time.time() - session._user_speaking_start_ts
-            session._user_turn_end_offset = time.time() - session._start_ts
+        logger.info(f"User state changed: {ev.old_state} -> {ev.new_state}")
 
     @session.on("agent_state_changed")
     def _on_agent_state_changed(ev: agents.AgentStateChangedEvent):
-        # logger.info(f"Agent state changed: {ev.old_state} -> {ev.new_state}")
-        if (ev.new_state == 'speaking') and (session._agent_turn_start_offset is None):
-            session._agent_turn_start_offset = time.time() - session._start_ts
-        if (ev.new_state == 'speaking'):
-            session._agent_speaking_start_ts = time.time()
-        elif (ev.old_state == 'speaking'):
-            session._agent_turn_duration += time.time() - session._agent_speaking_start_ts
-            session._agent_turn_end_offset = time.time() - session._start_ts
+        logger.info(f"Agent state changed: {ev.old_state} -> {ev.new_state}")
     
     @ctx.room.local_participant.register_rpc_method("postanalyzer")
     async def handle_postanalyzer(payload: dict):
@@ -305,8 +286,8 @@ async def entrypoint(ctx: agents.JobContext):
     def on_conversation_item_added(event: agents.ConversationItemAddedEvent):
         logger.info(f"Conversation item added from {event.item.role}: {event.item.text_content}")
         if event.item.role == 'assistant':
-            n_user_messages = len([e for e in session._chat_ctx.items if e.role == 'user'])
-            is_agent_message = event.item.role == 'assistant'
+            n_user_messages = len([e for e in session._chat_ctx.items if (e.type == 'message' and e.role == 'user')])
+            is_agent_message = event.item.type == 'message' and event.item.role == 'assistant'
             async def handle_checker():
                 try:
                     agent = session.current_agent
@@ -331,14 +312,12 @@ async def entrypoint(ctx: agents.JobContext):
             if (mode != "console") and (n_user_messages > 0) and (is_agent_message):
                 asyncio.create_task(handle_checker())
 
-    output_sr = { "elevenlabs": 44100, "nostreamnexttextelevenlabs": 44100 }[TTS]
     session_start_kwargs = {
         "room": ctx.room,
         "agent": FinesseTutor(userdata=userdata, mode=mode),
-        "room_output_options": room_io.RoomOutputOptions(audio_sample_rate=output_sr),
+        "room_output_options": room_io.RoomOutputOptions(audio_sample_rate=44100),
+        "room_input_options": room_io.RoomInputOptions(noise_cancellation=noise_cancellation.BVC()),
     }
-    if NOISE_CANCELLATION:
-        session_start_kwargs["room_input_options"] = room_io.RoomInputOptions(noise_cancellation=noise_cancellation.BVC())
     await session.start(**session_start_kwargs)
 
 
