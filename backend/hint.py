@@ -101,6 +101,8 @@ def build_task(
     userbot_messages = []
 
     for msg in chat_context:
+        if msg.type != 'message':
+            continue
         msg = dict(msg)
         if msg['role'] == 'user':
             userbot_messages.append(f"{username}: {msg['content']}")

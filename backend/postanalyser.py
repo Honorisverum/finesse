@@ -141,6 +141,8 @@ def build_task(chat_context, goal, username, botname, skill, bracket='quotation'
     userbot_messages = []
     for msg in chat_context:
         msg = dict(msg)
+        if msg.get('type', 'message') != 'message':
+            continue
         if msg['role'] == 'user':
             userbot_messages.append(f"{username}: {msg['content']}")
         elif msg['role'] == 'assistant':
@@ -362,7 +364,8 @@ if __name__ == "__main__":
         goal=good_goal.format(botname=botnames["good"]),
         username=username,
         botname=botnames["good"],
-        skill=good_skill
+        skill=good_skill,
+        model="anthropic/claude-sonnet-4.5",
     )
     print_analysis_result(result1)
     

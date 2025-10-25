@@ -3,15 +3,14 @@ from pathlib import Path
 from collections import defaultdict
 
 
-SKILLS = [
-    "smalltalk",
-    "attraction",
-    "artofpersuasion",
-    "negotiation",
-    "conflictresolution",
-    "decodingemotions",
-    "manipulationdefense"
-]
+def _get_skills():
+    base_path = Path(__file__).parent.parent / "scenarios"
+    json_files = base_path.glob("*.json")
+    return sorted([f.stem for f in json_files])
+
+
+SKILLS = _get_skills()
+
 
 def load_scenarios(skills: list[str] = None):
     skills = skills or SKILLS

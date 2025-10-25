@@ -37,6 +37,7 @@ export default function Page() {
   const [analysisResult, setAnalysisResult] = useState<PostAnalyzerData | null>(null);
   const [showAnalysisResults, setShowAnalysisResults] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
+  const [emojiReactions, setEmojiReactions] = useState<Array<{id: number, emoji: string}>>([]);
 
   // Загрузка скиллов и сценариев при монтировании компонента
   useEffect(() => {
@@ -93,9 +94,32 @@ export default function Page() {
         }
       });
       
+      // Регистрация RPC метода для эмоджи реакций
+      room.registerRpcMethod('reaction', async (data: { payload: string }) => {
+        try {
+          console.log('Received reaction RPC call', data);
+          
+          const emoji = data.payload;
+          const id = Date.now();
+          
+          setEmojiReactions((prev: Array<{id: number, emoji: string}>) => [...prev, { id, emoji }]);
+          
+          // Удаляем эмоджи через 3 секунды
+          setTimeout(() => {
+            setEmojiReactions((prev: Array<{id: number, emoji: string}>) => prev.filter((e: {id: number, emoji: string}) => e.id !== id));
+          }, 3000);
+          
+          return 'ok';
+        } catch (error) {
+          console.error('Error processing reaction data', error);
+          return 'error';
+        }
+      });
+      
       // Очистка при размонтировании
       return () => {
         room.unregisterRpcMethod('checker');
+        room.unregisterRpcMethod('reaction');
       };
     }
   }, [room]);
@@ -168,6 +192,8 @@ export default function Page() {
               setShowAnalysisResults={setShowAnalysisResults}
               attemptCount={attemptCount}
               setAttemptCount={setAttemptCount}
+              emojiReactions={emojiReactions}
+              setEmojiReactions={setEmojiReactions}
             />
           )}
         </div>
@@ -198,7 +224,9 @@ function SimpleVoiceAssistant(props: {
   showAnalysisResults: boolean,
   setShowAnalysisResults: (show: boolean) => void,
   attemptCount: number,
-  setAttemptCount: (attemptCount: number) => void
+  setAttemptCount: (attemptCount: number) => void,
+  emojiReactions: Array<{id: number, emoji: string}>,
+  setEmojiReactions: (reactions: Array<{id: number, emoji: string}> | ((prev: Array<{id: number, emoji: string}>) => Array<{id: number, emoji: string}>)) => void
 }) {
   const { state: agentState } = useVoiceAssistant();
   const roomContext = useRoomContext();
@@ -214,6 +242,7 @@ function SimpleVoiceAssistant(props: {
   const [scenarioDescription, setScenarioDescription] = useState<string | null>(null);
   const [selectedScenarioName, setSelectedScenarioName] = useState<string | null>(null);
   const [scenarioGoal, setScenarioGoal] = useState<string | null>(null);
+  const [emojiReactions, setEmojiReactions] = useState<Array<{id: number, emoji: string}>>([]);
   
   useEffect(() => {
     console.log('Agent state changed to:', agentState);
@@ -891,7 +920,28 @@ function SimpleVoiceAssistant(props: {
               )}
             </div>
             
-            <AgentVisualizer />
+            <div className="relative">
+              <AgentVisualizer />
+              
+              {/* Emoji Reactions */}
+              <AnimatePresence>
+                {props.emojiReactions.map((reaction) => (
+                  <motion.div
+                    key={reaction.id}
+                    initial={{ opacity: 0, scale: 0.5, y: 0 }}
+                    animate={{ opacity: 1, scale: 1.5, y: -100 }}
+                    exit={{ opacity: 0, scale: 0.5 }}
+                    transition={{ duration: 2.5, ease: "easeOut" }}
+                    className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-6xl pointer-events-none"
+                    style={{
+                      left: `${50 + (Math.random() - 0.5) * 40}%`,
+                    }}
+                  >
+                    {reaction.emoji}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
             
             {/* CTA Message display */}
             <AnimatePresence>
