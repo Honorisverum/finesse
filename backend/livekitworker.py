@@ -61,11 +61,14 @@ class FinesseTutor(agents.Agent):
     ) -> None:
         self.userdata = userdata
         self.mode = mode
+        logger.info(f"Assembling prompt for scenario: {userdata.scenario_name}")
+        logger.info(f"Scenario data keys: {userdata.scenario_data.keys()}")
         instructions = finesse_utils.assemble_prompt(
             scenario=userdata.scenario_data,
             username=userdata.username,
             usergender=userdata.usergender,
         )
+        logger.info(f"Prompt assembled successfully, length: {len(instructions)} chars")
         super().__init__(instructions=instructions)
 
     def split_opening(self, text) -> tuple[str, str]:
@@ -182,20 +185,40 @@ async def entrypoint(ctx: agents.JobContext):
     if mode != "console":
         await ctx.wait_for_participant()
 
-    ALL_SCENARIOS = finesse_utils.load_scenarios()
     if mode == "console":
+        # Console mode fallback - load from static files
+        ALL_SCENARIOS = finesse_utils.load_scenarios()
         attributes = {'user_id': '1234567890', 'userName': 'Vlad', 'userGender': 'male'}
         skill = random.choice(list(ALL_SCENARIOS.keys()))
         scenario_name = random.choice(list(ALL_SCENARIOS[skill].keys()))
+        scenario_data = ALL_SCENARIOS[skill][scenario_name]
     else:
+        # Production mode - use only scenarioData from attributes
         remote_participant_identity = next(iter(ctx.room.remote_participants.keys()))
         remote_participant = ctx.room.remote_participants[remote_participant_identity]
         attributes = remote_participant.attributes
         logger.info(f"attributes {attributes}")
-        skill = attributes["skill"]
-        scenario_name = attributes["scenarioName"]
+        
+        # Parse scenarioData from attributes
+        scenario_data_str = attributes.get("scenarioData")
+        if not scenario_data_str:
+            raise ValueError("scenarioData attribute is required")
+        
+        scenario_data = json.loads(scenario_data_str)
+        logger.info(f"Parsed scenarioData: {scenario_data.keys()}")
+        
+        # Validate required fields
+        required_fields = [
+            "skill", "id", "opening", "goal", "character", "negprompt",
+            "botname", "voice_description", "elevenlabs_voice_id"
+        ]
+        missing_fields = [field for field in required_fields if field not in scenario_data]
+        if missing_fields:
+            raise ValueError(f"scenarioData missing required fields: {missing_fields}")
+        
+        skill = scenario_data["skill"]
+        scenario_name = scenario_data["id"]
         attributes['user_id'] = '1234567890'
-    scenario_data = ALL_SCENARIOS[skill][scenario_name]
     
     userdata = SessionInfo(
         userid=attributes["user_id"],
@@ -205,7 +228,10 @@ async def entrypoint(ctx: agents.JobContext):
         scenario_name=scenario_name,
         scenario_data=scenario_data,
     )
-    logger.info(f"voice_description: {scenario_data['voice_description']}")
+    logger.info(f"SessionInfo created for user: {attributes['userName']} ({attributes['userGender']})")
+    logger.info(f"Skill: {skill}, Scenario: {scenario_name}")
+    logger.info(f"Bot: {scenario_data['botname']}, Voice: {scenario_data['elevenlabs_voice_id']}")
+    logger.info(f"Voice description: {scenario_data['voice_description']}")
     agent_session_kwargs = {
         "userdata": userdata,
         "stt": deepgram.STT(

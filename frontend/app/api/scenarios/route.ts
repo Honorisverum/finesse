@@ -11,12 +11,21 @@ export type Skill = {
   scenarios: Scenario[];
 };
 
-// Тип для сценария
+// Тип для сценария - включает все поля из JSON
 export type Scenario = {
   id: string;
   name: string;
   description: string;
   goal: string;
+  opening: string;
+  character: string[];
+  negprompt: string[];
+  skill: string;
+  botname: string;
+  botgender: string;
+  voice_description: string;
+  elevenlabs_voice_id: string;
+  [key: string]: any;  // Для дополнительных полей
 };
 
 // Не кэшировать результаты
@@ -62,11 +71,11 @@ export async function GET() {
         // Добавляем сценарии из файла
         for (const [scenarioId, scenarioData] of Object.entries(jsonData)) {
           if (typeof scenarioData === 'object' && scenarioData !== null) {
-            const scenario: Scenario = {
+            // Возвращаем ВСЕ поля сценария
+            const scenario: any = {
               id: scenarioId,
               name: scenarioId,
-              description: (scenarioData as any).description || '',
-              goal: (scenarioData as any).goal || ''
+              ...(scenarioData as any)  // Добавляем все поля из JSON
             };
             
             skill.scenarios.push(scenario);
