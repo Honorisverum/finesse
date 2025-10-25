@@ -30,10 +30,15 @@ export async function GET(request: Request) {
 
     // Get query parameters
     const url = new URL(request.url);
-    const skill = url.searchParams.get("skill") || "default";
-    const scenarioName = url.searchParams.get("scenarioName") || "general";
     const userName = url.searchParams.get("userName") || "Vlad";
     const userGender = url.searchParams.get("userGender") || "male";
+    const scenarioDataParam = url.searchParams.get("scenarioData");
+    
+    if (!scenarioDataParam) {
+      throw new Error("scenarioData is required");
+    }
+    
+    const scenarioData = JSON.parse(scenarioDataParam);
 
     // Generate participant token
     const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
@@ -41,10 +46,9 @@ export async function GET(request: Request) {
     const participantToken = await createParticipantToken(
       { identity: participantIdentity },
       roomName,
-      skill,
-      scenarioName,
       userName,
-      userGender
+      userGender,
+      scenarioData
     );
 
     // Return connection details
@@ -69,10 +73,9 @@ export async function GET(request: Request) {
 function createParticipantToken(
   userInfo: AccessTokenOptions, 
   roomName: string,
-  skill: string,
-  scenarioName: string,
   userName: string,
-  userGender: string
+  userGender: string,
+  scenarioData: any
 ) {
   const at = new AccessToken(API_KEY, API_SECRET, {
     ...userInfo,
@@ -89,12 +92,11 @@ function createParticipantToken(
   
   at.addGrant(grant);
   
-  // Add custom attributes to token
+  // Add custom attributes to token - only scenarioData
   at.attributes = {
-    skill,
-    scenarioName,
     userName,
-    userGender
+    userGender,
+    scenarioData: JSON.stringify(scenarioData)
   };
   
   return at.toJwt();

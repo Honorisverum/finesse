@@ -8,6 +8,15 @@ export interface Scenario {
   name: string;
   description: string;
   goal: string;
+  opening: string;
+  character: string[];
+  negprompt: string[];
+  skill: string;
+  botname: string;
+  botgender: string;
+  voice_description: string;
+  elevenlabs_voice_id: string;
+  [key: string]: any;  // Для дополнительных полей
 }
 
 export type HintData = {

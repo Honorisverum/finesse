@@ -6,6 +6,7 @@ import TranscriptionView from "@/components/TranscriptionView";
 import HintPanel from "@/components/HintPanel";
 import GoalProgressPanel from "@/components/GoalProgressPanel";
 import PostAnalyzerPanel, { PostAnalyzerData } from "@/components/PostAnalyzerPanel";
+import OnboardingChat from "@/components/OnboardingChat";
 import {
   BarVisualizer,
   DisconnectButton,
@@ -38,6 +39,10 @@ export default function Page() {
   const [showAnalysisResults, setShowAnalysisResults] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
   const [emojiReactions, setEmojiReactions] = useState<Array<{id: number, emoji: string}>>([]);
+  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [onboardingData, setOnboardingData] = useState<{skill: string, aspects: string, pitfalls: string} | null>(null);
+  const [generatedScenarios, setGeneratedScenarios] = useState<any[]>([]);
+  const [isLoadingScenarios, setIsLoadingScenarios] = useState(false);
 
   // Загрузка скиллов и сценариев при монтировании компонента
   useEffect(() => {
@@ -133,24 +138,35 @@ export default function Page() {
     // Reset progress state when starting a new call
     setGoalProgress(null);
 
-    // Generate room connection details with skill and scenarioName
+    // Находим выбранный сценарий
+    const selectedScenarioData = generatedScenarios.length > 0
+      ? generatedScenarios.find(s => s.id === selectedScenario)
+      : skills.find(skill => skill.name === selectedSkill)?.scenarios.find(s => s.id === selectedScenario);
+
+    if (!selectedScenarioData) {
+      console.error('Selected scenario data not found');
+      return;
+    }
+
+    // Generate room connection details
     const url = new URL(
       "/api/connection-details",
       window.location.origin
     );
     
-    // Add query parameters
-    url.searchParams.append("skill", selectedSkill);
-    url.searchParams.append("scenarioName", selectedScenario);
+    // Передаем полную информацию о сценарии (без картинки) и user info
+    const { image_base64, ...scenarioInfo } = selectedScenarioData;
+    url.searchParams.append("scenarioData", JSON.stringify(scenarioInfo));
     url.searchParams.append("userName", userName || "Vlad");
     url.searchParams.append("userGender", userGender);
+    console.log('Sending full scenario data to livekit (without image):', scenarioInfo);
     
     const response = await fetch(url.toString());
     const connectionDetailsData: ConnectionDetails = await response.json();
 
     await room.connect(connectionDetailsData.serverUrl, connectionDetailsData.participantToken);
     await room.localParticipant.setMicrophoneEnabled(true);
-  }, [room, selectedSkill, selectedScenario, userName, userGender]);
+  }, [room, selectedSkill, selectedScenario, userName, userGender, generatedScenarios, skills]);
 
   useEffect(() => {
     room.on(RoomEvent.MediaDevicesError, onDeviceFailure);
@@ -160,16 +176,124 @@ export default function Page() {
     };
   }, [room]);
 
+  const handleOnboardingComplete = async (chatHistory: Array<{role: string, content: string}>) => {
+    setIsLoadingScenarios(true);
+    
+    try {
+      // Вызываем API для получения сценариев
+      const response = await fetch('https://belyaev-vladislav-nw--finesse-scenario-selector-get-scenarios.modal.run', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chat_history: chatHistory }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Received scenarios from API:', data);
+      
+      // Сохраняем полученные сценарии
+      setGeneratedScenarios(data.scenarios);
+      setSelectedSkill(data.skill);
+      
+      // Автоматически выбираем первый сценарий
+      if (data.scenarios.length > 0) {
+        setSelectedScenario(data.scenarios[0].id);
+      }
+      
+      setShowOnboarding(false);
+    } catch (error) {
+      console.error('Failed to fetch scenarios:', error);
+      // Fallback: используем существующую логику
+      if (skills.length > 0) {
+        const randomSkill = skills[Math.floor(Math.random() * skills.length)];
+        setSelectedSkill(randomSkill.name);
+        console.log(`Fallback: выбран скилл ${randomSkill.name}`);
+        
+        if (randomSkill.scenarios.length > 0) {
+          setSelectedScenario(randomSkill.scenarios[0].id);
+        }
+      }
+      setShowOnboarding(false);
+    } finally {
+      setIsLoadingScenarios(false);
+    }
+  };
+
   return (
-    <main data-lk-theme="default" className="h-full grid content-center bg-[var(--lk-bg)]">
+    <main data-lk-theme="default" className="h-screen w-screen overflow-hidden bg-[var(--lk-bg)] relative">
       <RoomContext.Provider value={room}>
-        <div className="lk-room-container max-w-[1024px] w-[90vw] mx-auto max-h-[90vh]">
-          {loading ? (
-            <div className="text-center py-8">Loading skills and scenarios...</div>
-          ) : error ? (
-            <div className="text-center text-red-500 py-8">{error}</div>
-          ) : (
-            <SimpleVoiceAssistant 
+        {/* Personal Info - всегда справа вверху */}
+        <div className="fixed top-3 right-3 z-[60] flex items-center gap-3">
+          {/* Name input */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-[#8e8e8e] font-medium px-1">Name</label>
+            <input
+              type="text"
+              placeholder="Vlad"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              className="w-32 px-3 py-1.5 bg-[#2f2f2f] border border-[#3f3f3f] rounded-lg text-[13px] text-white placeholder:text-[#6e6e6e] focus:outline-none focus:border-[#5f5f5f] transition-colors"
+            />
+          </div>
+          
+          {/* Gender selector */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-[#8e8e8e] font-medium px-1">Gender</label>
+            <div className="flex items-center gap-1 bg-[#2f2f2f] border border-[#3f3f3f] rounded-lg p-0.5">
+              <button
+                onClick={() => setUserGender("male")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  userGender === "male" 
+                    ? "bg-white text-black shadow-sm" 
+                    : "bg-transparent text-[#ececec] hover:text-white"
+                }`}
+              >
+                Male
+              </button>
+              <button
+                onClick={() => setUserGender("female")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  userGender === "female" 
+                    ? "bg-white text-black shadow-sm" 
+                    : "bg-transparent text-[#ececec] hover:text-white"
+                }`}
+              >
+                Female
+              </button>
+              <button
+                onClick={() => setUserGender("neutral")}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
+                  userGender === "neutral" 
+                    ? "bg-white text-black shadow-sm" 
+                    : "bg-transparent text-[#ececec] hover:text-white"
+                }`}
+              >
+                Neutral
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Onboarding Chat */}
+        <OnboardingChat 
+          onComplete={handleOnboardingComplete} 
+          showMainContent={!showOnboarding}
+        />
+
+        {/* Main Content - появляется справа после onboarding */}
+        {!showOnboarding && (
+          <div className="fixed right-0 top-0 bottom-0 w-[calc(100vw-450px)] pt-24 px-8 overflow-y-auto animate-in fade-in slide-in-from-right duration-700">
+            {loading ? (
+              <div className="text-center py-8">Loading skills and scenarios...</div>
+            ) : error ? (
+              <div className="text-center text-red-500 py-8">{error}</div>
+            ) : (
+              <SimpleVoiceAssistant 
               onConnectButtonClicked={onConnectButtonClicked}
               skills={skills}
               selectedSkill={selectedSkill}
@@ -194,9 +318,11 @@ export default function Page() {
               setAttemptCount={setAttemptCount}
               emojiReactions={emojiReactions}
               setEmojiReactions={setEmojiReactions}
+              generatedScenarios={generatedScenarios}
             />
           )}
-        </div>
+          </div>
+        )}
       </RoomContext.Provider>
     </main>
   );
@@ -226,7 +352,8 @@ function SimpleVoiceAssistant(props: {
   attemptCount: number,
   setAttemptCount: (attemptCount: number) => void,
   emojiReactions: Array<{id: number, emoji: string}>,
-  setEmojiReactions: (reactions: Array<{id: number, emoji: string}> | ((prev: Array<{id: number, emoji: string}>) => Array<{id: number, emoji: string}>)) => void
+  setEmojiReactions: (reactions: Array<{id: number, emoji: string}> | ((prev: Array<{id: number, emoji: string}>) => Array<{id: number, emoji: string}>)) => void,
+  generatedScenarios: any[]
 }) {
   const { state: agentState } = useVoiceAssistant();
   const roomContext = useRoomContext();
@@ -238,11 +365,23 @@ function SimpleVoiceAssistant(props: {
   const [endConversationMessage, setEndConversationMessage] = useState<string | null>(null);
   const [showRoleplay, setShowRoleplay] = useState(false);
   const [roleplayText, setRoleplayText] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState(1); // 1 - имя/гендер, 2 - навык, 3 - сценарий
   const [scenarioDescription, setScenarioDescription] = useState<string | null>(null);
   const [selectedScenarioName, setSelectedScenarioName] = useState<string | null>(null);
   const [scenarioGoal, setScenarioGoal] = useState<string | null>(null);
   const [emojiReactions, setEmojiReactions] = useState<Array<{id: number, emoji: string}>>([]);
+  
+  // Инициализируем описание и цель первого сценария
+  useEffect(() => {
+    const currentSkill = props.skills.find(skill => skill.name === props.selectedSkill);
+    if (currentSkill && currentSkill.scenarios.length > 0) {
+      const firstScenario = currentSkill.scenarios.find(s => s.id === props.selectedScenario);
+      if (firstScenario) {
+        setSelectedScenarioName(firstScenario.name);
+        setScenarioDescription(firstScenario.description);
+        setScenarioGoal(firstScenario.goal);
+      }
+    }
+  }, [props.selectedSkill, props.selectedScenario, props.skills]);
   
   useEffect(() => {
     console.log('Agent state changed to:', agentState);
@@ -498,40 +637,18 @@ function SimpleVoiceAssistant(props: {
 
   const currentSkill = props.skills.find(skill => skill.name === props.selectedSkill) || props.skills[0];
   
-  const scenarios = currentSkill.scenarios;
-  
-  const handleSkillChange = (skillName: string) => {
-    props.setSelectedSkill(skillName);
-    
-    const newSkill = props.skills.find(skill => skill.name === skillName);
-    if (newSkill && newSkill.scenarios.length > 0) {
-      props.setSelectedScenario(newSkill.scenarios[0].id);
-      setSelectedScenarioName(newSkill.scenarios[0].name);
-      setScenarioDescription(newSkill.scenarios[0].description);
-    }
-  };
+  // Используем сгенерированные сценарии если они есть, иначе берем из существующих
+  const scenarios = props.generatedScenarios.length > 0 
+    ? props.generatedScenarios 
+    : (currentSkill?.scenarios || []);
 
-  const handleScenarioClick = (scenario: Scenario) => {
+  const handleScenarioClick = (scenario: any) => {
     props.setSelectedScenario(scenario.id);
-    setSelectedScenarioName(scenario.name);
+    setSelectedScenarioName(scenario.name || scenario.title);
     setScenarioDescription(scenario.description);
     setScenarioGoal(scenario.goal);
     console.log("Selected scenario:", scenario);
     console.log("Goal:", scenario.goal);
-  };
-
-  const nextStep = () => {
-    if (currentStep < 3) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      props.setChosenOptions(true);
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
   };
 
   return (
@@ -615,159 +732,22 @@ function SimpleVoiceAssistant(props: {
                 transition={{ duration: 0.3 }}
                 className="flex flex-col gap-4 bg-gray-800 p-6 rounded-lg w-full max-w-3xl"
               >
-                <h2 className="text-xl font-bold text-center mb-2">
-                  {currentStep === 1 ? "Personal Info" : 
-                   currentStep === 2 ? "Select Skill" : "Choose Scenario"}
-                </h2>
+                <h2 className="text-xl font-bold text-center mb-2">Choose Scenario</h2>
+                <p className="text-sm text-gray-400 text-center mb-2">
+                  Skill: <span className="text-white font-semibold">{props.selectedSkill}</span>
+                </p>
                 
-                {/* Шаг 1: Имя и гендер */}
-                {currentStep === 1 && (
-                  <>
-                    <div className="flex flex-col gap-2">
-                      <label className="text-sm">Your Name:</label>
-                      <input
-                        type="text"
-                        placeholder="Enter your name (optional)"
-                        value={props.userName}
-                        onChange={(e) => props.setUserName(e.target.value)}
-                        className="px-3 py-2 bg-gray-700 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-white"
-                      />
-                    </div>
-                    
-                    <div className="flex flex-col gap-2">
-                      <label className="text-sm">Your Gender:</label>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => props.setUserGender("male")}
-                          className={`flex-1 px-3 py-1 rounded-md text-sm ${
-                            props.userGender === "male" 
-                              ? "bg-white text-black" 
-                              : "bg-gray-700 text-white"
-                          }`}
-                        >
-                          Male
-                        </button>
-                        <button
-                          onClick={() => props.setUserGender("female")}
-                          className={`flex-1 px-3 py-1 rounded-md text-sm ${
-                            props.userGender === "female" 
-                              ? "bg-white text-black" 
-                              : "bg-gray-700 text-white"
-                          }`}
-                        >
-                          Female
-                        </button>
-                        <button
-                          onClick={() => props.setUserGender("neutral")}
-                          className={`flex-1 px-3 py-1 rounded-md text-sm ${
-                            props.userGender === "neutral" 
-                              ? "bg-white text-black" 
-                              : "bg-gray-700 text-white"
-                          }`}
-                        >
-                          Neutral
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-                
-                {/* Шаг 2: Выбор навыка */}
-                {currentStep === 2 && (
-                  <div className="w-full">
-                    <div className="flex flex-col space-y-3">
-                      {props.skills.map((skill) => {
-                        // Цвета для каждого навыка
-                        const skillColors: {[key: string]: string} = {
-                          "artofpersuasion": "bg-gradient-to-r from-blue-800 to-blue-500",
-                          "attraction": "bg-gradient-to-r from-pink-800 to-pink-500",
-                          "conflictresolution": "bg-gradient-to-r from-orange-800 to-orange-500", 
-                          "decodingemotions": "bg-gradient-to-r from-purple-800 to-purple-500",
-                          "manipulationdefense": "bg-gradient-to-r from-red-800 to-red-500",
-                          "negotiation": "bg-gradient-to-r from-green-800 to-green-500",
-                          "smalltalk": "bg-gradient-to-r from-indigo-800 to-indigo-500"
-                        };
-                        
-                        const bgColor = skillColors[skill.name.toLowerCase().replace(/\s+/g, '')];
-                        
-                        // Конкретные логотипы для скиллов как SVG
-                        const skillLogos: {[key: string]: JSX.Element} = {
-                          "artofpersuasion": (
-                            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
-                            </svg>
-                          ),
-                          "attraction": (
-                            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                            </svg>
-                          ),
-                          "conflictresolution": (
-                            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z"/>
-                            </svg>
-                          ),
-                          "decodingemotions": (
-                            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M9 11.75c-.69 0-1.25.56-1.25 1.25s.56 1.25 1.25 1.25 1.25-.56 1.25-1.25-.56-1.25-1.25-1.25zm6 0c-.69 0-1.25.56-1.25 1.25s.56 1.25 1.25 1.25 1.25-.56 1.25-1.25-.56-1.25-1.25-1.25zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8 0-.29.02-.58.05-.86 2.36-1.05 4.23-2.98 5.21-5.37C11.07 8.33 14.05 10 17.42 10c.78 0 1.53-.09 2.25-.26.21.71.33 1.47.33 2.26 0 4.41-3.59 8-8 8z"/>
-                            </svg>
-                          ),
-                          "manipulationdefense": (
-                            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
-                            </svg>
-                          ),
-                          "negotiation": (
-                            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/>
-                            </svg>
-                          ),
-                          "smalltalk": (
-                            <svg className="w-9 h-9 text-white" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
-                            </svg>
-                          )
-                        };
-                        
-                        return (
-                          <button
-                            key={skill.name}
-                            onClick={() => handleSkillChange(skill.name)}
-                            className={`relative rounded-xl overflow-hidden shadow-lg transform transition-all duration-200 w-full ${
-                              props.selectedSkill === skill.name 
-                                ? "scale-[1.02] ring-2 ring-white" 
-                                : "hover:scale-[1.01] hover:brightness-110"
-                            }`}
-                          >
-                            <div className={`flex items-center p-4 ${bgColor} h-24`}>
-                              <div className="flex-shrink-0 bg-black bg-opacity-30 w-16 h-16 rounded-full flex items-center justify-center mr-4">
-                                {skillLogos[skill.name.toLowerCase().replace(/\s+/g, '')]}
-                              </div>
-                              <div className="flex-1">
-                                <h3 className="text-xl font-bold text-white">{skill.name}</h3>
-                              </div>
-                              {props.selectedSkill === skill.name && (
-                                <div className="ml-3 bg-white bg-opacity-20 p-2 rounded-full">
-                                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
-                                </div>
-                              )}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Шаг 3: Выбор сценария */}
-                {currentStep === 3 && (
+                {/* Выбор сценария */}
+                {(
                   <div className="w-full">
                     <div className="grid grid-cols-4 gap-3">
                       {scenarios.map((scenario) => {
-                        // Путь к фото
-                        const imagePath = `/photos/${props.selectedSkill.toLowerCase().replace(/\s+/g, '')}/${scenario.id}.png`;
+                        // Используем base64 изображение если есть, иначе путь к файлу
+                        const imageSource = scenario.image_base64 
+                          ? `data:image/png;base64,${scenario.image_base64}`
+                          : `/photos/${props.selectedSkill.toLowerCase().replace(/\s+/g, '')}/${scenario.id}.png`;
+                        
+                        const scenarioName = scenario.name || scenario.title;
                         
                         return (
                           <button
@@ -780,13 +760,13 @@ function SimpleVoiceAssistant(props: {
                             }`}
                           >
                             <img 
-                              src={imagePath} 
-                              alt={scenario.name}
+                              src={imageSource} 
+                              alt={scenarioName}
                               className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
                             <div className="absolute bottom-0 left-0 right-0 p-3">
-                              <p className="text-white font-semibold text-sm">{scenario.name}</p>
+                              <p className="text-white font-semibold text-sm">{scenarioName}</p>
                             </div>
                           </button>
                         );
@@ -811,22 +791,13 @@ function SimpleVoiceAssistant(props: {
                   </div>
                 )}
                 
-                {/* Навигационные кнопки */}
-                <div className="flex justify-between mt-4">
-                  {currentStep > 1 ? (
-                    <button
-                      className="px-4 py-2 bg-gray-700 text-white rounded-md"
-                      onClick={prevStep}
-                    >
-                      Back
-                    </button>
-                  ) : <div></div>}
-                  
+                {/* Кнопка Start Call */}
+                <div className="flex justify-center mt-4">
                   <button
-                    className="px-4 py-2 bg-white text-black rounded-md"
-                    onClick={currentStep === 3 ? handleConnect : nextStep}
+                    className="px-6 py-3 bg-white text-black rounded-md font-semibold hover:bg-gray-200 transition-colors"
+                    onClick={handleConnect}
                   >
-                    {currentStep === 3 ? "Start Call" : "Next"}
+                    Start Call
                   </button>
                 </div>
               </motion.div>
