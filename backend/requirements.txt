@@ -14,4 +14,4 @@ emoji
 langchain-openai==0.3.23
 langchain-groq==0.3.8
 langchain-google-genai==2.1.12
-modal=1.2.1
+modal==1.2.1
