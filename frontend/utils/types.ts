@@ -21,4 +21,13 @@ export type GoalProgressData = {
   previous_progress_towards_goal: number;
   is_bad_ending_triggered: boolean;
   CTA: string | null;
-}; 
+};
+
+// Database types for the new voice scenario builder
+export type {
+  ScenarioCard,
+  ConversationRecord,
+  ScenarioData,
+  GenerateScenarioRequest,
+  GenerateScenarioResponse
+} from "@/types/database"; 

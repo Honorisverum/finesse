@@ -35,6 +35,19 @@ export async function GET(request: Request) {
     const userName = url.searchParams.get("userName") || "Vlad";
     const userGender = url.searchParams.get("userGender") || "male";
 
+    // NEW: Check if scenarioData is passed directly for generated scenarios
+    const scenarioDataParam = url.searchParams.get("scenarioData");
+    let scenarioData: any = null;
+
+    if (scenarioDataParam) {
+      // For generated scenarios, data is passed directly
+      try {
+        scenarioData = JSON.parse(scenarioDataParam);
+      } catch (e) {
+        return NextResponse.json({ error: "Invalid scenarioData" }, { status: 400 });
+      }
+    }
+
     // Generate participant token
     const participantIdentity = `voice_assistant_user_${Math.floor(Math.random() * 10_000)}`;
     const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
@@ -44,7 +57,8 @@ export async function GET(request: Request) {
       skill,
       scenarioName,
       userName,
-      userGender
+      userGender,
+      scenarioData
     );
 
     // Return connection details
@@ -67,18 +81,19 @@ export async function GET(request: Request) {
 }
 
 function createParticipantToken(
-  userInfo: AccessTokenOptions, 
+  userInfo: AccessTokenOptions,
   roomName: string,
   skill: string,
   scenarioName: string,
   userName: string,
-  userGender: string
+  userGender: string,
+  scenarioData?: any
 ) {
   const at = new AccessToken(API_KEY, API_SECRET, {
     ...userInfo,
     ttl: "15m",
   });
-  
+
   const grant: VideoGrant = {
     room: roomName,
     roomJoin: true,
@@ -86,16 +101,25 @@ function createParticipantToken(
     canPublishData: true,
     canSubscribe: true,
   };
-  
+
   at.addGrant(grant);
-  
+
   // Add custom attributes to token
-  at.attributes = {
+  const attributes: Record<string, any> = {
     skill,
     scenarioName,
     userName,
     userGender
   };
-  
+
+  // If scenarioData is provided (for custom generated scenarios),
+  // include it in the token attributes
+  // Note: The backend will need to handle this appropriately
+  if (scenarioData) {
+    attributes.scenarioData = JSON.stringify(scenarioData);
+  }
+
+  at.attributes = attributes;
+
   return at.toJwt();
 }

@@ -19,11 +19,23 @@ export default function useCombinedTranscriptions() {
 
   const combinedTranscriptions = useMemo(() => {
     return [
-      ...agentTranscriptions.map((val) => {
-        return { ...val, role: "assistant" };
+      ...agentTranscriptions.map((val): TranscriptionSegment => {
+        return {
+          id: val.id,
+          text: val.text,
+          role: "assistant",
+          firstReceivedTime: val.firstReceivedTime,
+          isFinal: val.final
+        };
       }),
-      ...userTranscriptions.map((val) => {
-        return { ...val, role: "user" };
+      ...userTranscriptions.map((val): TranscriptionSegment => {
+        return {
+          id: val.id,
+          text: val.text,
+          role: "user",
+          firstReceivedTime: val.firstReceivedTime,
+          isFinal: val.final
+        };
       }),
       ...systemMessages,
     ].sort((a, b) => a.firstReceivedTime - b.firstReceivedTime);

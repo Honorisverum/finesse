@@ -1,0 +1,42 @@
+{
+    "case_id": "diamondlux_v1",
+    "title": "DiamondLux Millennial Expansion",
+    "parts": [
+      {
+        "part_id": "part_1_framework_and_strategy",
+        "ai_opening_prompt": "Our client today is DiamondLux, a mid-sized diamond jewelry retailer. They have twenty stores across major US cities and generate about two hundred million dollars in annual revenue... The key question for you: Should DiamondLux proceed with the expansion to capture millennial customers, and if so, which cities should they prioritize? Take a minute to organize your approach—how would you tackle this problem?",
+        "exhibit_to_display": null,
+        "part_instructions": "Your objective: Get the candidate to build a logical framework. They should mention (1) Strategic Fit/Validation, (2) Market Attractiveness/Selection, and (3) Financial Viability. Once they list their framework, you *must* drill down on 'Strategic Fit' by asking them to validate *why* physical stores are the right move vs. e-commerce. Probe them 2-3 times on this topic (e.g., 'What evidence would make you confident...', '...how would e-commerce factor in?'). After probing, you must use the hard transition: 'Alright. Let's move to the next part. Let’s say DiamondLux wants to consider opening physical stores... How would you compare and prioritize target cities?' and then output the `[PART_COMPLETE]` token."
+      },
+      {
+        "part_id": "part_2_city_selection",
+        "ai_opening_prompt": "Got it. I like your approach. Let's start by looking at some potential expansion cities. DiamondLux is considering Austin, Denver, and Nashville. Would you like to see the data we've gathered?",
+        "exhibit_to_display": "exhibit_1_cities.jpg",
+        "part_instructions": "Your objective: Get the candidate to compare the three cities using Exhibit 1 and make a justified choice. They must analyze the trade-offs (e.g., Austin's income vs. competition, Nashville's growth vs. low income, Denver's lack of competition vs. low growth). Once they've made a choice and discussed the risks, you *must* pivot them to the next step using the scripted line: 'Understood. Management was intrigued by your analysis and decided that Nashville warranted deeper investigation. The next step is to size the engagement ring market... We have specific market data for Austin available if you’d like to practice the sizing for that city.' and then output the `[PART_COMPLETE]` token."
+      },
+      {
+        "part_id": "part_3_market_sizing",
+        "ai_opening_prompt": "I've pulled up the market data for Austin. Can you see that on your screen?",
+        "exhibit_to_display": "exhibit_2_austin_data.jpg",
+        "part_instructions": "Your objective: Guide the candidate to calculate the addressable market for *physical* stores (~$108M) using Exhibit 2. The key analytical steps are [Millennials -> Unmarried -> Engaged -> Ring Price -> Physical %]. You must guide them if they miss a step (e.g., '...but what about the physical store preference?'). Once they have a reasonable TAM, you *must* ask the market share follow-up: 'What does that figure imply for DiamondLux’s potential share, given a typical store’s five million dollar revenue target?' Once they answer that (~4.6%), ask one more follow-up on feasibility ('What does it tell you about the challenge or feasibility...?'), then output the `[PART_COMPLETE]` token."
+      },
+      {
+        "part_id": "part_4_profitability",
+        "ai_opening_prompt": "Understood. Let’s look at profitability in more detail. Here’s the estimated cost structure for an Austin store: annual rent of six hundred thousand dollars, staff costs of four hundred thousand dollars, and other operating costs equal to thirty percent of revenue. The projected annual revenue is five million dollars. Walk me through how you’d assess whether this store would actually be profitable.",
+        "exhibit_to_display": null,
+        "part_instructions": "Your objective: Get the candidate to calculate the operating profit and margin. The data is Revenue=$5M, Fixed Costs=$1M ($600k rent + $400k staff), Variable Costs=30% of Revenue ($1.5M). This leads to Total Costs=$2.5M, Profit=$2.5M, and a Profit Margin=50%. Guide them to this 50% margin. Once they have it, you *must* ask the cannibalization follow-up: '...if we assume twenty percent of the new Austin store’s five million dollars in revenue comes from customers who would have otherwise bought from DiamondLux’s website, how does that affect the store’s true profitability?' After they discuss this impact, output the `[PART_COMPLETE]` token."
+      },
+      {
+        "part_id": "part_5_risks_and_competitors",
+        "ai_opening_prompt": "Alright. Moving on, the CEO has reviewed your analysis and briefed the board... What are the main risks DiamondLux should consider with this expansion, and specifically, how might online competitors like Blue Nile respond if we enter Austin with a physical store?",
+        "exhibit_to_display": null,
+        "part_instructions": "Your objective: Get the candidate to brainstorm key risks. They should mention 2-3 risks, such as (1) Execution risk/missing targets, (2) Brand perception, (3) Cannibalization, (4) Competitive response (e.g., price war). You should also probe them on the *long-term sustainability* of physical stores vs. online. After 2-3 minutes of brainstorming, output the `[PART_COMPLETE]` token."
+      },
+      {
+        "part_id": "part_6_recommendation",
+        "ai_opening_prompt": "Alright. Let’s wrap things up. Imagine you’ve just stepped into the elevator with DiamondLux’s CEO on her way to the board meeting. She turns to you and says: 'I need to give the board our recommendation in a minute. Should we move forward with the expansion? What’s your bottom line?'",
+        "exhibit_to_display": null,
+        "part_instructions": "Your objective: Get the candidate to provide a clear 'Yes' or 'No' recommendation. They must support it with 2-3 key findings from their analysis (e.g., 'Yes, the 50% margin is strong, the 4.6% market share is attainable, and it provides a high-touch experience to compete with online...'). Once they have provided a clear, synthesized recommendation, end the interview."
+      }
+    ]
+  }
