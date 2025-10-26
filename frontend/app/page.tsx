@@ -178,7 +178,7 @@ export default function Page() {
 
   const handleOnboardingComplete = async (chatHistory: Array<{role: string, content: string}>) => {
     setIsLoadingScenarios(true);
-    
+
     try {
       // Вызываем API для получения сценариев
       const response = await fetch('https://belyaev-vladislav-nw--finesse-scenario-selector-get-scenarios.modal.run', {
@@ -369,9 +369,22 @@ function SimpleVoiceAssistant(props: {
   const [selectedScenarioName, setSelectedScenarioName] = useState<string | null>(null);
   const [scenarioGoal, setScenarioGoal] = useState<string | null>(null);
   const [emojiReactions, setEmojiReactions] = useState<Array<{id: number, emoji: string}>>([]);
+  const [imageLoadErrors, setImageLoadErrors] = useState<Set<string>>(new Set());
   
   // Инициализируем описание и цель первого сценария
   useEffect(() => {
+    // Check generated scenarios first
+    if (props.generatedScenarios.length > 0) {
+      const scenario = props.generatedScenarios.find(s => s.id === props.selectedScenario);
+      if (scenario) {
+        setSelectedScenarioName(scenario.name || scenario.id);
+        setScenarioDescription(scenario.description);
+        setScenarioGoal(scenario.goal);
+        return;
+      }
+    }
+
+    // Otherwise check predefined scenarios
     const currentSkill = props.skills.find(skill => skill.name === props.selectedSkill);
     if (currentSkill && currentSkill.scenarios.length > 0) {
       const firstScenario = currentSkill.scenarios.find(s => s.id === props.selectedScenario);
@@ -381,7 +394,7 @@ function SimpleVoiceAssistant(props: {
         setScenarioGoal(firstScenario.goal);
       }
     }
-  }, [props.selectedSkill, props.selectedScenario, props.skills]);
+  }, [props.selectedSkill, props.selectedScenario, props.skills, props.generatedScenarios]);
   
   useEffect(() => {
     console.log('Agent state changed to:', agentState);
@@ -730,43 +743,72 @@ function SimpleVoiceAssistant(props: {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.3 }}
-                className="flex flex-col gap-4 bg-gray-800 p-6 rounded-lg w-full max-w-3xl"
+                className="flex flex-col gap-6 w-full max-w-5xl"
               >
-                <h2 className="text-xl font-bold text-center mb-2">Choose Scenario</h2>
-                <p className="text-sm text-gray-400 text-center mb-2">
-                  Skill: <span className="text-white font-semibold">{props.selectedSkill}</span>
-                </p>
-                
+                {/* Header */}
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold text-white">Choose Your Scenario</h2>
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800/50 rounded-full border border-gray-700">
+                    <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                    <span className="text-sm text-gray-300">Skill:</span>
+                    <span className="text-sm font-semibold text-white">{props.selectedSkill}</span>
+                  </div>
+                </div>
+
                 {/* Выбор сценария */}
                 {(
                   <div className="w-full">
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-3 gap-4">
                       {scenarios.map((scenario) => {
                         // Используем base64 изображение если есть, иначе путь к файлу
-                        const imageSource = scenario.image_base64 
+                        const imageSource = scenario.image_base64
                           ? `data:image/png;base64,${scenario.image_base64}`
                           : `/photos/${props.selectedSkill.toLowerCase().replace(/\s+/g, '')}/${scenario.id}.png`;
-                        
+
                         const scenarioName = scenario.name || scenario.title;
-                        
+                        const hasImageError = imageLoadErrors.has(scenario.id);
+
                         return (
                           <button
                             key={scenario.id}
                             onClick={() => handleScenarioClick(scenario)}
-                            className={`relative rounded-xl overflow-hidden h-48 ${
-                              props.selectedScenario === scenario.id 
-                                ? "ring-4 ring-white shadow-lg" 
-                                : "ring-1 ring-gray-600 hover:ring-2 hover:ring-gray-400"
+                            className={`group relative rounded-2xl overflow-hidden h-64 transition-all duration-300 ${
+                              props.selectedScenario === scenario.id
+                                ? "ring-4 ring-orange-500 shadow-2xl shadow-orange-500/50 scale-105"
+                                : "ring-2 ring-gray-700 hover:ring-gray-500 hover:scale-102 shadow-lg"
                             }`}
+                            style={hasImageError ? { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' } : undefined}
                           >
-                            <img 
-                              src={imageSource} 
-                              alt={scenarioName}
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-70"></div>
-                            <div className="absolute bottom-0 left-0 right-0 p-3">
-                              <p className="text-white font-semibold text-sm">{scenarioName}</p>
+                            {!hasImageError && (
+                              <img
+                                src={imageSource}
+                                alt={scenarioName}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                onError={(e) => {
+                                  // Mark this scenario as having an image error
+                                  setImageLoadErrors(prev => new Set(prev).add(scenario.id));
+                                }}
+                              />
+                            )}
+                            {/* Fallback icon for missing images - only show when image failed */}
+                            {hasImageError && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <svg className="w-20 h-20 text-white opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                              </div>
+                            )}
+                            {/* Selected indicator */}
+                            {props.selectedScenario === scenario.id && (
+                              <div className="absolute top-3 right-3 bg-orange-500 rounded-full p-1.5 shadow-lg">
+                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80"></div>
+                            <div className="absolute bottom-0 left-0 right-0 p-4">
+                              <p className="text-white font-bold text-base leading-tight">{scenarioName}</p>
                             </div>
                           </button>
                         );
@@ -775,29 +817,39 @@ function SimpleVoiceAssistant(props: {
                     
                     {/* Описание и цель выбранного сценария */}
                     {scenarioDescription && (
-                      <div className="mt-4 p-4 bg-gray-700 rounded-xl shadow-inner">
-                        <p className="text-sm text-gray-300">{scenarioDescription}</p>
-                        
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="mt-6 p-6 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-xl"
+                      >
+                        <p className="text-base text-gray-200 leading-relaxed">{scenarioDescription}</p>
+
                         {/* Всегда показываем блок с целью */}
-                        <div className="mt-3 pt-3 border-t border-gray-600">
-                          <div className="flex items-center">
-                            <div className="bg-yellow-600 w-4 h-4 rounded-full mr-2"></div>
-                            <p className="text-sm font-semibold text-white">goal:</p>
+                        <div className="mt-4 p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/30">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="bg-yellow-500 w-2 h-2 rounded-full"></div>
+                            <p className="text-xs font-bold text-yellow-400 uppercase tracking-wider">Your Goal</p>
                           </div>
-                          <p className="text-sm text-yellow-300 mt-1 px-2 py-1 bg-gray-800 rounded">{scenarioGoal}</p>
+                          <p className="text-sm text-yellow-100 leading-relaxed">{scenarioGoal}</p>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
                   </div>
                 )}
                 
                 {/* Кнопка Start Call */}
-                <div className="flex justify-center mt-4">
+                <div className="flex justify-center mt-6">
                   <button
-                    className="px-6 py-3 bg-white text-black rounded-md font-semibold hover:bg-gray-200 transition-colors"
+                    className="group px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-xl font-bold text-lg shadow-lg shadow-orange-500/50 hover:shadow-xl hover:shadow-orange-500/70 hover:scale-105 transition-all duration-300"
                     onClick={handleConnect}
                   >
-                    Start Call
+                    <span className="flex items-center gap-2">
+                      Start Call
+                      <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </span>
                   </button>
                 </div>
               </motion.div>
@@ -851,6 +903,29 @@ function SimpleVoiceAssistant(props: {
             transition={{ duration: 0.3, ease: [0.09, 1.04, 0.245, 1.055] }}
             className="flex flex-col items-center gap-4 h-full"
           >
+            {/* Beautiful Scenario Info Box */}
+            {scenarioDescription && scenarioGoal && !isProcessingAnalysis && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="w-full max-w-2xl mb-4"
+              >
+                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 shadow-xl p-4">
+                  <p className="text-white text-sm leading-relaxed mb-3">{scenarioDescription}</p>
+
+                  {/* Goal section */}
+                  <div className="bg-gray-800/50 rounded-lg p-2.5 border border-yellow-500/20">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div>
+                      <span className="text-yellow-400 text-xs font-semibold uppercase tracking-wide">Your Goal</span>
+                    </div>
+                    <p className="text-yellow-100 text-sm leading-relaxed">{scenarioGoal}</p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             <div className="bg-gray-800 py-2 px-4 rounded-full text-sm mb-2 flex items-center gap-3">
               {isProcessingAnalysis && (
                 <span className="text-blue-400 animate-pulse flex items-center gap-1">
@@ -861,26 +936,17 @@ function SimpleVoiceAssistant(props: {
                   Processing analysis...
                 </span>
               )}
-              
-              {/* Отображение цели во время звонка */}
-              {scenarioGoal && !isProcessingAnalysis && (
-                <div className="flex items-center">
-                  <div className="bg-yellow-600 w-3 h-3 rounded-full mr-2"></div>
-                  <span className="text-yellow-300 text-xs mr-1">Goal:</span>
-                  <span className="text-white text-xs">{scenarioGoal}</span>
-                </div>
-              )}
-              
+
               {showHintButton && !isProcessingAnalysis && (
                 <div className="relative">
-                  <button 
+                  <button
                     onClick={requestHint}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm py-1.5 px-3 rounded-md transition-colors flex items-center gap-1.5 font-medium"
                   >
                     <span role="img" aria-label="refresh">🔁</span>
                     Get hint
                   </button>
-                  
+
                   {/* Hint Panel - compact version */}
                   {showHintPanel && (
                     <div className="absolute top-full mt-2 right-0 w-64 z-10">

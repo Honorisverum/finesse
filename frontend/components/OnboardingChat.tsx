@@ -12,7 +12,7 @@ type Message = {
   timestamp: Date
 }
 
-type ConversationStep = "initial" | "aspects" | "pitfalls" | "generating"
+type ConversationStep = "initial" | "followup" | "generating"
 
 const suggestionPills = ["Dating", "Rizz", "Confidence", "Small Talk", "Leadership", "Persuasion", "Humor", "Conflict Resolution", "Managing Up", "Saying No", "Manipulation Defense"]
 
@@ -70,7 +70,7 @@ export default function OnboardingChat({ onComplete, showMainContent }: Onboardi
     setMessages((prev) => [...prev, newMessage])
   }
 
-  const handleSend = (text?: string) => {
+  const handleSend = async (text?: string) => {
     const messageText = text || input
     if (!messageText.trim()) return
 
@@ -82,36 +82,59 @@ export default function OnboardingChat({ onComplete, showMainContent }: Onboardi
     const userInput = messageText
     setInput("")
 
-    setTimeout(() => {
-      if (step === "initial") {
-        setUserSkill(userInput)
-        addBotMessage(`Which aspects of ${userInput} are important to you?`)
-        setStep("aspects")
-      } else if (step === "aspects") {
-        addBotMessage(`What potential pitfalls in ${userInput} could there be?`)
-        setStep("pitfalls")
-      } else if (step === "pitfalls") {
-        // Сначала смещаем чат влево
+    if (step === "initial") {
+      // Call LLM to generate smart follow-up question
+      setUserSkill(userInput)
+
+      try {
+        // Show typing indicator after a brief delay
+        setTimeout(async () => {
+          const response = await fetch('/api/generate-followup', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userInput: messageText
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            addBotMessage(data.question);
+          } else {
+            // Fallback to generic question if API fails
+            addBotMessage(`Tell me more about what you'd like to practice with ${messageText}.`);
+          }
+          setStep("followup")
+        }, 600);
+      } catch (error) {
+        console.error('Error generating follow-up:', error);
+        // Fallback to generic question
         setTimeout(() => {
-          setIsShifted(true)
-          
-          // Затем запускаем генерацию (немного позже)
-          setTimeout(() => {
-            setStep("generating")
-            
-            // Через 5 секунд вызываем onComplete (время лоадинга)
-            setTimeout(() => {
-              // Формируем chat_history из всех сообщений
-              const chatHistory = messages.map(msg => ({
-                role: msg.sender === "user" ? "user" : "assistant",
-                content: msg.text
-              }));
-              onComplete(chatHistory)
-            }, 5000)
-          }, 800)
-        }, 500)
+          addBotMessage(`Tell me more about what you'd like to practice with ${messageText}.`);
+          setStep("followup")
+        }, 600);
       }
-    }, 600)
+    } else if (step === "followup") {
+      // After follow-up answer, start generating scenarios
+      setTimeout(() => {
+        setIsShifted(true)
+
+        setTimeout(() => {
+          setStep("generating")
+
+          setTimeout(() => {
+            // Формируем chat_history из всех сообщений
+            const chatHistory = messages.map(msg => ({
+              role: msg.sender === "user" ? "user" : "assistant",
+              content: msg.text
+            }));
+            onComplete(chatHistory)
+          }, 5000)
+        }, 800)
+      }, 500)
+    }
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
