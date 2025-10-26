@@ -95,8 +95,9 @@ class OpenAIClient:
     async def chat_completion(
         self,
         messages: list[dict[str, str]],
-        model: str = "gpt-4.1",
-        temperature: float = 0.7,
+        model: str = "o3-mini",
+        temperature: float = 1.0,
+        reasoning_effort: Optional[str] = None,
         response_format: Optional[dict] = None
     ) -> str:
         """Call OpenAI chat completion API"""
@@ -110,6 +111,9 @@ class OpenAIClient:
             "messages": messages,
             "temperature": temperature
         }
+        
+        if reasoning_effort:
+            payload["reasoning_effort"] = reasoning_effort
         
         if response_format:
             payload["response_format"] = response_format
@@ -194,9 +198,11 @@ CHAT HISTORY:
 {chat_context}
 
 TASK:
-1. If the user's need matches one of the EXISTING SKILLS (even approximately), return that skill name
-2. If it's completely different, return "custom"
+1. If the user EXPLICITLY mentions one of the EXISTING SKILLS as a keyword or very directly asks for it (e.g., "I want smalltalk", "teach me negotiation", "help with attraction") - return that skill name
+2. OTHERWISE, ALWAYS return "custom" - even if the need is somewhat similar to an existing skill
 3. Extract key context about what the user wants to practice
+
+Be VERY STRICT: only match existing skills if user directly mentions the skill name or uses the exact keyword. Any personalized, specific, or contextualized request should be "custom".
 
 Respond in JSON format:
 {{
@@ -207,10 +213,12 @@ Respond in JSON format:
 }}
 
 Examples:
-- "I want to get better at talking to strangers" → skill: "smalltalk"
-- "Need to negotiate my salary" → skill: "negotiation"  
-- "How to attract someone I like" → skill: "attraction"
-- "I want to learn quantum physics communication" → skill: "custom", custom_description: "quantum physics communication"
+- "I want to get better at smalltalk" → skill: "smalltalk" (explicit keyword)
+- "I need help with negotiation" → skill: "negotiation" (explicit keyword)
+- "Teach me attraction" → skill: "attraction" (direct mention)
+- "I want to talk to strangers at parties" → skill: "custom", custom_description: "talking to strangers at parties" (NOT explicit)
+- "Need to negotiate my salary raise" → skill: "custom", custom_description: "salary negotiation" (specific context, NOT explicit)
+- "How to attract my coworker" → skill: "custom", custom_description: "attracting coworker" (specific situation)
 """
     
     messages = [
@@ -220,7 +228,9 @@ Examples:
     
     response = await openai_client.chat_completion(
         messages=messages,
-        temperature=0.3,
+        model="o3-mini",
+        temperature=1.0,
+        reasoning_effort="medium",
         response_format={"type": "json_object"}
     )
     
@@ -380,8 +390,9 @@ CRITICAL:
     
     response = await openai_client.chat_completion(
         messages=messages,
-        model="gpt-4.1",
-        temperature=0.8,
+        model="o3-mini",
+        temperature=1.0,
+        reasoning_effort="medium",
         response_format={"type": "json_object"}
     )
     
@@ -588,7 +599,7 @@ async def main():
     result = await select_or_generate_scenarios(
         test_chat, 
         api_key, 
-        generate_images=True  # Enable image generation for custom scenarios
+        generate_images=False  # Enable image generation for custom scenarios
     )
     
     print(f"\n{'='*70}")
