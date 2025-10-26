@@ -130,18 +130,23 @@ export default function Page() {
   }, [room]);
 
   const onConnectButtonClicked = useCallback(async () => {
-    if (!selectedSkill || !selectedScenario) {
-      console.error('No skill or scenario selected');
+    if (!selectedScenario) {
+      console.error('No scenario selected');
       return;
     }
 
     // Reset progress state when starting a new call
     setGoalProgress(null);
 
-    // Находим выбранный сценарий
+    // Находим выбранный сценарий (сначала в generated, потом в существующих)
     const selectedScenarioData = generatedScenarios.length > 0
       ? generatedScenarios.find(s => s.id === selectedScenario)
-      : skills.find(skill => skill.name === selectedSkill)?.scenarios.find(s => s.id === selectedScenario);
+      : (selectedSkill ? skills.find(skill => skill.name === selectedSkill)?.scenarios.find(s => s.id === selectedScenario) : null);
+
+    console.log('=== Connecting to call ===');
+    console.log('Selected scenario ID:', selectedScenario);
+    console.log('Generated scenarios count:', generatedScenarios.length);
+    console.log('Found scenario data:', selectedScenarioData);
 
     if (!selectedScenarioData) {
       console.error('Selected scenario data not found');
@@ -156,10 +161,21 @@ export default function Page() {
     
     // Передаем полную информацию о сценарии (без картинки) и user info
     const { image_base64, ...scenarioInfo } = selectedScenarioData;
+    
+    console.log('=== Scenario Info ===');
+    console.log('Fields in scenarioInfo:', Object.keys(scenarioInfo));
+    console.log('Full scenarioInfo:', scenarioInfo);
+    console.log('Required fields check:');
+    console.log('- skill:', scenarioInfo.skill);
+    console.log('- id:', scenarioInfo.id);
+    console.log('- botname:', scenarioInfo.botname);
+    console.log('- elevenlabs_voice_id:', scenarioInfo.elevenlabs_voice_id);
+    console.log('- goal:', scenarioInfo.goal);
+    console.log('- opening:', scenarioInfo.opening);
+    
     url.searchParams.append("scenarioData", JSON.stringify(scenarioInfo));
     url.searchParams.append("userName", userName || "Vlad");
     url.searchParams.append("userGender", userGender);
-    console.log('Sending full scenario data to livekit (without image):', scenarioInfo);
     
     const response = await fetch(url.toString());
     const connectionDetailsData: ConnectionDetails = await response.json();
@@ -195,16 +211,21 @@ export default function Page() {
       
       const data = await response.json();
       console.log('Received scenarios from API:', data);
+      console.log('Skill from API:', data.skill);
+      console.log('Is custom:', data.is_custom);
       
       // Сохраняем полученные сценарии
       setGeneratedScenarios(data.scenarios);
-      setSelectedSkill(data.skill);
+      setSelectedSkill(data.skill || 'Custom');
       
       // Автоматически выбираем первый сценарий
       if (data.scenarios.length > 0) {
         setSelectedScenario(data.scenarios[0].id);
+        console.log('Auto-selected first scenario:', data.scenarios[0].id);
       }
       
+      // Показываем сценарии для выбора
+      setChosenOptions(false);
       setShowOnboarding(false);
     } catch (error) {
       console.error('Failed to fetch scenarios:', error);
@@ -408,45 +429,80 @@ function SimpleVoiceAssistant(props: {
   // Handle connect button with roleplay display
   const handleConnect = async () => {
     try {
-      // Find the selected scenario
-      const currentSkill = props.skills.find(skill => skill.name === props.selectedSkill);
-      if (!currentSkill) return;
+      // Найти сценарий в generated или существующих
+      let scenario;
+      if (props.generatedScenarios.length > 0) {
+        scenario = props.generatedScenarios.find(s => s.id === props.selectedScenario);
+        console.log('Using generated scenario:', scenario);
+      } else {
+        const currentSkill = props.skills.find(skill => skill.name === props.selectedSkill);
+        if (currentSkill) {
+          scenario = currentSkill.scenarios.find(s => s.id === props.selectedScenario);
+          console.log('Using existing scenario:', scenario);
+        }
+      }
       
-      const scenario = currentSkill.scenarios.find(s => s.id === props.selectedScenario);
-      if (!scenario) return;
+      if (!scenario) {
+        console.error('Scenario not found!');
+        return;
+      }
       
-      // Fetch the scenario details to get the opening text
-      const response = await fetch(`/api/scenario-detail?skill=${props.selectedSkill}&id=${props.selectedScenario}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (data.opening) {
-          const [roleplay, _] = splitOpening(data.opening);
-          if (roleplay) {
-            setRoleplayText(roleplay);
-            setShowRoleplay(true);
+      // Для кастомных сценариев - opening уже в объекте
+      if (scenario.opening) {
+        const [roleplay, _] = splitOpening(scenario.opening);
+        if (roleplay) {
+          setRoleplayText(roleplay);
+          setShowRoleplay(true);
+          
+          // Wait 5 seconds then connect
+          setTimeout(() => {
+            setShowRoleplay(false);
+            props.onConnectButtonClicked();
             
-            // Wait 5 seconds then connect
+            // Add the roleplay text to the transcription after the connection is established
             setTimeout(() => {
-              setShowRoleplay(false);
-              props.onConnectButtonClicked();
+              const event = new CustomEvent('add-system-message', { 
+                detail: { message: roleplay } 
+              });
+              document.dispatchEvent(event);
+            }, 1000);
+          }, 5000);
+          
+          return;
+        }
+      }
+      
+      // Для старых сценариев пытаемся загрузить через API
+      if (!props.generatedScenarios.length) {
+        const response = await fetch(`/api/scenario-detail?skill=${props.selectedSkill}&id=${props.selectedScenario}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.opening) {
+            const [roleplay, _] = splitOpening(data.opening);
+            if (roleplay) {
+              setRoleplayText(roleplay);
+              setShowRoleplay(true);
               
-              // Add the roleplay text to the transcription after the connection is established
               setTimeout(() => {
-                // Dispatch a custom event to add the roleplay text to the transcription
-                const event = new CustomEvent('add-system-message', { 
-                  detail: { message: roleplay } 
-                });
-                document.dispatchEvent(event);
-              }, 1000); // Wait a bit for the connection to establish
-            }, 5000);
-            
-            return;
+                setShowRoleplay(false);
+                props.onConnectButtonClicked();
+                
+                setTimeout(() => {
+                  const event = new CustomEvent('add-system-message', { 
+                    detail: { message: roleplay } 
+                  });
+                  document.dispatchEvent(event);
+                }, 1000);
+              }, 5000);
+              
+              return;
+            }
           }
         }
       }
       
-      // If we couldn't get the opening or there's no roleplay, just connect directly
+      // Если нет roleplay, сразу connect
       props.onConnectButtonClicked();
     } catch (error) {
       console.error('Failed to process opening:', error);
