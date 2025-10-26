@@ -109,7 +109,7 @@ export default function OnboardingChat({ onComplete, showMainContent }: Onboardi
             addBotMessage(data.question);
           } else {
             // Fallback to generic question if API fails
-            addBotMessage(`Tell me more about what you'd like to practice with ${messageText}.`);
+            addBotMessage("Is there anything else I should know before we jump in?");
           }
           setStep("followup")
         }, 600);
@@ -117,7 +117,7 @@ export default function OnboardingChat({ onComplete, showMainContent }: Onboardi
         console.error('Error generating follow-up:', error);
         // Fallback to generic question
         setTimeout(() => {
-          addBotMessage(`Tell me more about what you'd like to practice with ${messageText}.`);
+          addBotMessage("Is there anything else I should know before we jump in?");
           setStep("followup")
         }, 600);
       }
@@ -152,7 +152,7 @@ export default function OnboardingChat({ onComplete, showMainContent }: Onboardi
   return (
     <>
       {/* Header - всегда сверху */}
-      <header className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center border-b border-border/50 bg-background/80 px-4 py-4 backdrop-blur-sm">
+      <header className="fixed left-0 right-0 top-0 z-50 flex items-center justify-center border-b border-border/50 bg-black px-4 py-4">
         <h1 className="text-balance text-center text-lg text-foreground">
           <span className="text-2xl font-bold text-orange-500">Kiyomi App</span>
           <br />
