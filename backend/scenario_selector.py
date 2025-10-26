@@ -40,8 +40,8 @@ GENERATED_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
 # Default voice IDs for generated characters
 DEFAULT_VOICE_IDS = {
-    "male": "fsYawdZmGnJKupmmEeSt",
-    "female": "1dHsaGJ0HI5ljkfLEhyc",
+    "male": "UgBBYS2sOqTuMpoF3BR0",
+    "female": "4NejU5DwQjevnR6mh3mb",
     "neutral": "fsYawdZmGnJKupmmEeSt"  # fallback to male voice
 }
 
@@ -95,7 +95,7 @@ class OpenAIClient:
     async def chat_completion(
         self,
         messages: list[dict[str, str]],
-        model: str = "gpt-4o-mini",
+        model: str = "gpt-4.1",
         temperature: float = 0.7,
         response_format: Optional[dict] = None
     ) -> str:
@@ -359,7 +359,7 @@ Respond in JSON format:
         "opening": "...",
         "character": ["...", "..."],
         "negprompt": ["...", "..."],
-        "skill": "{custom_description.lower().replace(' ', '')}",
+        "skill": "onword",  // ONE WORD only, lowercase (e.g., "teaching", "debating", "persuading")
         "botname": "...",
         "botgender": "male" or "female" (ONLY these two values allowed),
         "voice_description": "..."
@@ -368,7 +368,9 @@ Respond in JSON format:
     "scenario_3": {{ ... }}
 }}
 
-IMPORTANT: botgender must be EXACTLY "male" or "female" - no other values allowed.
+CRITICAL: 
+- botgender must be EXACTLY "male" or "female" 
+- skill must be ONE WORD ONLY, lowercase, describing the skill based on: {custom_description}
 """
     
     messages = [
@@ -378,7 +380,7 @@ IMPORTANT: botgender must be EXACTLY "male" or "female" - no other values allowe
     
     response = await openai_client.chat_completion(
         messages=messages,
-        model="gpt-4o",  # Use better model for generation
+        model="gpt-4.1",
         temperature=0.8,
         response_format={"type": "json_object"}
     )

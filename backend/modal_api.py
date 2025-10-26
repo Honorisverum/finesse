@@ -49,6 +49,13 @@ async def get_scenarios(data: dict):
         generate_images=False  # Don't generate images for custom scenarios
     )
     
+    # For custom skills, extract skill name from scenarios
+    skill_name = result.skill
+    if result.is_custom and result.scenarios:
+        # Get skill name from first scenario
+        first_scenario = next(iter(result.scenarios.values()))
+        skill_name = first_scenario.skill
+    
     scenarios_list = []
     for scenario_id, scenario_data in result.scenarios.items():
         scenario_dict = scenario_data.model_dump()
@@ -65,11 +72,6 @@ async def get_scenarios(data: dict):
                 scenario_dict["image_base64"] = None
         
         scenarios_list.append(scenario_dict)
-    
-    # For custom skills, extract skill name from first scenario
-    skill_name = result.skill
-    if result.is_custom and scenarios_list:
-        skill_name = scenarios_list[0].get("skill", "custom")
     
     return {
         "skill": skill_name,

@@ -199,25 +199,14 @@ async def entrypoint(ctx: agents.JobContext):
         attributes = remote_participant.attributes
         logger.info(f"attributes {attributes}")
         
-        # Parse scenarioData from attributes
-        scenario_data_str = attributes.get("scenarioData")
-        if not scenario_data_str:
-            raise ValueError("scenarioData attribute is required")
-        
-        scenario_data = json.loads(scenario_data_str)
+        # Parse scenarioData from attributes - упадет с KeyError если нет
+        scenario_data = json.loads(attributes["scenarioData"])
         logger.info(f"Parsed scenarioData: {scenario_data.keys()}")
         
-        # Validate required fields
-        required_fields = [
-            "skill", "id", "opening", "goal", "character", "negprompt",
-            "botname", "voice_description", "elevenlabs_voice_id"
-        ]
-        missing_fields = [field for field in required_fields if field not in scenario_data]
-        if missing_fields:
-            raise ValueError(f"scenarioData missing required fields: {missing_fields}")
-        
+        # Extract basic info - упадет с KeyError если нет
         skill = scenario_data["skill"]
         scenario_name = scenario_data["id"]
+        
         attributes['user_id'] = '1234567890'
     
     userdata = SessionInfo(
