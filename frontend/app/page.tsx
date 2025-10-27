@@ -246,7 +246,7 @@ export default function Page() {
   };
 
   return (
-    <main data-lk-theme="default" className="h-screen w-screen overflow-hidden bg-[var(--lk-bg)] relative">
+    <main data-lk-theme="default" className="h-screen w-screen overflow-hidden bg-[var(--lk-bg)] relative pt-[72px]">
       <RoomContext.Provider value={room}>
         {/* Personal Info - всегда справа вверху */}
         <div className="fixed top-3 right-3 z-[60] flex items-center gap-3">
@@ -308,7 +308,7 @@ export default function Page() {
 
         {/* Main Content - появляется справа после onboarding */}
         {!showOnboarding && (
-          <div className="fixed right-0 top-0 bottom-0 w-[calc(100vw-450px)] pt-24 px-8 overflow-y-auto animate-in fade-in slide-in-from-right duration-700">
+          <div className="fixed right-0 top-[120px] bottom-0 w-[calc(100vw-450px)] pt-4 px-8 overflow-y-auto animate-in fade-in slide-in-from-right duration-700">
             {loading ? (
               <div className="text-center py-8">Loading skills and scenarios...</div>
             ) : error ? (
@@ -730,7 +730,7 @@ function SimpleVoiceAssistant(props: {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3, ease: [0.09, 1.04, 0.245, 1.055] }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 overflow-y-auto"
+            className="fixed top-[120px] left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 overflow-y-auto"
           >
             <PostAnalyzerPanel 
               data={props.analysisResult} 
@@ -752,7 +752,7 @@ function SimpleVoiceAssistant(props: {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3, ease: [0.09, 1.04, 0.245, 1.055] }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4"
+            className="fixed top-[120px] left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4"
           >
             <div className="bg-gray-800 rounded-lg p-8 max-w-md w-full text-center">
               <h2 className="text-2xl font-bold mb-4">Analysis is preparing...</h2>
@@ -779,7 +779,7 @@ function SimpleVoiceAssistant(props: {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3, ease: [0.09, 1.04, 0.245, 1.055] }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4"
+            className="fixed top-[120px] left-0 right-0 bottom-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4"
           >
             <div className="bg-gray-800 rounded-lg p-8 max-w-lg w-full text-center">
               <div className="text-xl font-light my-6">{roleplayText}</div>

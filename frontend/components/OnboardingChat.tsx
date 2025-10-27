@@ -161,11 +161,11 @@ export default function OnboardingChat({ onComplete, showMainContent }: Onboardi
       </header>
 
       {/* Chat Section */}
-      <div 
+      <div
         className={cn(
           "transition-all duration-700 ease-in-out",
-          isShifted 
-            ? "fixed bottom-8 left-8 h-[calc(100vh-120px)] w-[450px] z-30" 
+          isShifted
+            ? "fixed top-[120px] bottom-8 left-8 w-[450px] z-30"
             : "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[768px] max-w-3xl"
         )}
       >
