@@ -37,8 +37,8 @@ export const AppSidebar = () => {
         <SidebarMenuItem>
           <SidebarMenuButton asChild className="gap-x-4 h-10 px-4">
             <Link href="/" prefetch>
-              <Workflow className="size-6" />
-              <span className="font-semibold text-lg">Finesse</span>
+              <img src="/logos/logo.svg" alt="Logo" className="size-6" />
+              <span className="font-sans text-xl font-medium tracking-tight text-foreground">Convo</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
