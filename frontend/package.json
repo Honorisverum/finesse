@@ -11,8 +11,14 @@
     "format:write": "prettier --write ."
   },
   "dependencies": {
+    "@command-center/command-center": "^0.3.1-alpha.0",
     "@livekit/components-react": "^2.9.3",
     "@livekit/components-styles": "^1.1.4",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-separator": "^1.1.7",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.18.0",
     "livekit-client": "^2.8.0",
@@ -20,7 +26,8 @@
     "lucide-react": "^0.548.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
