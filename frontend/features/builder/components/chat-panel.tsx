@@ -19,11 +19,25 @@ type Message = {
   content: string
 }
 
-export function ChatPanel() {
+type ScenarioData = {
+  context: string
+  persona: {
+    name: string
+    role: string
+    traits: string
+  }
+  objections: string[]
+}
+
+type ChatPanelProps = {
+  onScenarioGenerated: (data: ScenarioData) => void
+}
+
+export function ChatPanel({ onScenarioGenerated }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<Message[]>([])
 
-  const handleSubmit = (message: any, event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (_message: any, event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!input.trim()) return
 
@@ -38,16 +52,58 @@ export function ChatPanel() {
     // Clear input
     setInput("")
 
-    // Mock AI response after a short delay
-    setTimeout(() => {
+    try {
+      // Call the API
+      const response = await fetch('/api/builder-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: input,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get response')
+      }
+
+      const data = await response.json()
+
+      console.log('API Response:', data)
+
+      // Pass the structured data to the parent component
+      onScenarioGenerated(data)
+
+      // Format the structured response for display in chat
+      const formattedResponse = `**Context:**
+${data.context}
+
+**Persona:**
+- Name: ${data.persona.name}
+- Role: ${data.persona.role}
+- Traits: ${data.persona.traits}
+
+**Objections:**
+${data.objections.map((obj: string, i: number) => `${i + 1}. ${obj}`).join('\n')}`
+
+      // Add AI response to chat
       const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: Date.now().toString(),
         role: "assistant",
-        content:
-          "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.",
+        content: formattedResponse,
       }
       setMessages((prev) => [...prev, aiMessage])
-    }, 500)
+    } catch (error) {
+      console.error('Error getting AI response:', error)
+      // Add error message
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "Sorry, I encountered an error. Please try again.",
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    }
   }
 
   return (

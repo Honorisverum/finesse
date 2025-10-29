@@ -1,48 +1,39 @@
 "use client";
 
+import { useState } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { ChatPanel } from "@/features/builder/components/chat-panel";
+import { ScenarioDisplay } from "@/features/builder/components/scenario-display";
+
+type ScenarioData = {
+  context: string;
+  persona: {
+    name: string;
+    role: string;
+    traits: string;
+  };
+  objections: string[];
+};
 
 export default function BuilderPage() {
+  const [scenarioData, setScenarioData] = useState<ScenarioData | undefined>();
+
   return (
     <ResizablePanelGroup direction="horizontal">
       {/* Left Panel - Chat */}
       <ResizablePanel defaultSize={50} minSize={20} className="flex flex-col">
-        <div className="flex-1 overflow-auto space-y-4">
-          <ChatPanel />
-        </div>
+        <ChatPanel onScenarioGenerated={setScenarioData} />
       </ResizablePanel>
 
       <ResizableHandle withHandle />
 
-      {/* Right Panel */}
+      {/* Right Panel - Scenario Display */}
       <ResizablePanel defaultSize={50} minSize={20} className="flex flex-col">
-        {/* Fixed header */}
-        <Card className="rounded-none border-0 border-b">
-          <CardHeader>
-            <CardTitle>Right Panel</CardTitle>
-          </CardHeader>
-        </Card>
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-auto p-6 space-y-4">
-          {Array.from({ length: 11 }).map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <CardTitle>Card {i + 1}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  This is the right section of the builder.
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <ScenarioDisplay data={scenarioData} />
       </ResizablePanel>
     </ResizablePanelGroup>
   );
